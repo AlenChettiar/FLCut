@@ -10,8 +10,10 @@ type ShortLink = {
   shortCode?: string;
   currentClicks?: number;
 };
-
-export default function RecentURLs() {
+interface RecentURLsProps {
+  refreshKey: number;
+}
+export default function RecentURLs({ refreshKey }: RecentURLsProps) {
   const [urls, setUrls] = useState<ShortLink[]>([]);
   const shortURL = (code: string) =>
     `${process.env.NEXT_PUBLIC_BASE_URL}${code}`;
@@ -38,7 +40,7 @@ export default function RecentURLs() {
       }
     };
     fetchLink();
-  }, []);
+  }, [refreshKey]);
 
   return (
     <div className="space-y-4">
