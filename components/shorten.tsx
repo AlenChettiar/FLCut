@@ -16,6 +16,7 @@ export default function Shorten({ onLinkCreated }: ShortenProps) {
     const link = formData.get("link");
     const goLiveAt = formData.get("goLiveAt");
     const expiresAt = formData.get("expiresAt");
+    const shortCode=formData.get("shortCode");
     setShortenedUrl("");
     setIsCopied(false);
 
@@ -23,7 +24,7 @@ export default function Shorten({ onLinkCreated }: ShortenProps) {
       const response = await fetch("/api/shortenLink", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ link, goLiveAt, expiresAt }),
+        body: JSON.stringify({ link, goLiveAt, expiresAt ,shortCode}),
       });
       
       if (!response.ok) {
@@ -72,8 +73,15 @@ export default function Shorten({ onLinkCreated }: ShortenProps) {
               className="h-14 w-full pl-12 pr-4 text-base bg-neutral-50/50 border-neutral-200/80 rounded-2xl transition-all duration-200 placeholder:text-neutral-400 focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-black/5 focus-visible:border-black"
             />
           </div>
+          {/* Custom Alias */}
+          <Input
+  name="shortCode"
+  type="text"
+  placeholder="Custom alias (optional)"
+  className="h-14 w-full px-4 text-base bg-neutral-50/50 border-neutral-200/80 rounded-2xl"
+/>
 
-          
+          {/* Live date input */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500 pl-1 flex items-center gap-1.5">
@@ -99,7 +107,7 @@ export default function Shorten({ onLinkCreated }: ShortenProps) {
               />
             </div>
           </div>
-
+          
           <Button
             type="submit"
             className="group h-14 w-full bg-neutral-900 text-white font-semibold text-base rounded-2xl transition-all duration-300 hover:bg-black hover:shadow-lg hover:shadow-neutral-900/10 active:scale-[0.99] flex items-center justify-center gap-2"
@@ -139,6 +147,7 @@ export default function Shorten({ onLinkCreated }: ShortenProps) {
           </div>
         </div>
       )} */}
+
     </div>
   );
 }
