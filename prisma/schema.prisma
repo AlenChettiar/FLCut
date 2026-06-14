@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+model ShortLink {
+  id           String    @id @default(cuid())
+  originalUrl  String    @map("original_url")
+  shortCode    String    @unique @map("short_code") // Enforces hardware-level uniqueness
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Lifespan & Scheduling Settings
+  goLiveAt     DateTime? @map("go_live_at")     // If set, blocks early redirects
+  expiresAt    DateTime? @map("expires_at")    // If set, blocks late redirects
+
+  //Capped / Waitlist Limits
+  clickCap     Int?      @map("click_cap")     // Max allowed clicks before waitlist
+  waitlistUrl  String?   @map("waitlist_url")  // Destination after cap is reached
+
+  //High-Velocity Concurrency Conduits
+  currentClicks Int      @default(0) @map("current_clicks") // Atomic calculation baseline
+  version       Int      @default(0)            // For Optimistic Concurrency Control locking
+
+  //Relations
+  analytics    ClickAnalytics[]
+
+  @@index([shortCode])
+  @@map("short_links")
+}
+
+/// Event Log Model storing immutable individual click entries for time-series charts.
+model ClickAnalytics {
+  id        String   @id @default(cuid())
+  linkId    String   @map("link_id")
+  timestamp DateTime @default(now())
+
+  //Smart Analytics Categorisation
+  isUnique  Boolean  @default(false) @map("is_unique")
+  referrer  String   @default("Direct")               // "Instagram", "GitHub", "X", etc.
+  device    String   @default("Unknown")              // "Mobile", "Desktop", "Tablet"
+  browser   String   @default("Unknown")              // "Chrome", "Safari", "Firefox"
+  
+  // Geolocational Mapping
+  country   String   @default("Unknown")              // ISO code format (e.g., "IN", "US")
+  region    String   @default("Unknown")              // State / Region mapping (e.g., "Karnataka")
+
+  //Bot / Filter Engineering Flags
+  isBot     Boolean  @default(false) @map("is_bot")   // True tracks scrapers safely outside user views
+
+  // Relations
+  shortLink ShortLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  // Compound index ensures ultra-fast time-series metrics extraction under heavy scale
+  @@index([linkId, timestamp])
+  @@map("click_analytics")
+}

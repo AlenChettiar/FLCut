@@ -7,11 +7,36 @@ import { ArrowRight, Link } from "lucide-react";
 
 export default function Shorten()
 {
+    
     // const[url,setUrl]=useState<string>();
     async function handleSubmit(formData: FormData) {
-    
-    const link = formData.get("link");
+      const link = formData.get("link");
     console.log(link); 
+      try{
+        const response =await fetch('/api/shortenLink',
+          {
+            method:'POST',
+            headers :{'content-type' : 'application/json'},
+            body :JSON.stringify({
+              link,
+            }),
+          }
+        )
+        if (!response.ok) {
+      const errorText = await response.text(); // Reads the HTML page error text safely
+      console.error("Server API returned an error:", response.status, errorText);
+      return;
+    }
+        const data = await response.json();
+      console.log("Successfully Shortened:", data);
+
+        
+      }
+      catch(error){
+        console.error('Error in shortening : ',error)
+      }
+    
+   
   }
     return(
         <form action={handleSubmit} className="w-full">
