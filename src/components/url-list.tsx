@@ -21,7 +21,7 @@ export default function RecentURLs({ refreshKey }: RecentURLsProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const shortURL = (code: string) =>
-    `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}${code}`;
+    `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/${code}`;
 
   const handleUrlAction = async (code: string) => {
     const fullUrl = shortURL(code);
