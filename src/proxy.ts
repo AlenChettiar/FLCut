@@ -1,30 +1,29 @@
+import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
 
-export async function proxy(req: NextRequest) {
-  // Safely read the session token without loading Prisma or Bcrypt!
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
-  const isLoggedIn = !!token;
-  
+export const proxy = auth((req) => {
+  const isLoggedIn = !!req.auth;
   const { nextUrl } = req;
-  const isAuthPage = nextUrl.pathname === "/login" || nextUrl.pathname === "/register";
+
+  const isAuthPage =
+    nextUrl.pathname === "/login" || nextUrl.pathname === "/register";
 
   if (isAuthPage) {
     if (isLoggedIn) {
-      // Send them to the dashboard, they don't need to log in again!
+      // Already logged in, send them home
       return NextResponse.redirect(new URL("/", nextUrl));
     }
-    return null; 
+    // Not logged in, let them see the auth pages
+    return NextResponse.next();
   }
 
-  // If they are anonymous and trying to access the dashboard
+  // Protected route and not logged in — send to login
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
-  return null;
-}
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: ["/", "/dashboard/:path*", "/login", "/register"],
