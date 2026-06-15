@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt"; 
+import { getToken } from "next-auth/jwt";
 
 export async function proxy(req: NextRequest) {
   // Safely read the session token without loading Prisma or Bcrypt!
