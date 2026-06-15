@@ -1,12 +1,12 @@
 import prisma from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { customAlphabet } from "nanoid";
+import { Prisma } from "@prisma/client";
 
 const base62Alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const createSecureNanoId = customAlphabet(base62Alphabet, 7);
 
-//absolute blocklist array 
 const RESERVED_PATHS = new Set([
   "admin",
   "api",
@@ -15,130 +15,166 @@ const RESERVED_PATHS = new Set([
   "signup",
   "settings",
   "favicon.ico",
-  "robots.txt"
+  "robots.txt",
 ]);
 
 function normalizeSlug(value: string) {
- 
   return value.trim().toLowerCase();
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { link, goLiveAt, expiresAt, shortCode } = await request.json();
-    let finalShortCode = createSecureNanoId();
-
-    if (shortCode && typeof shortCode === "string") {
-      const normalized = normalizeSlug(shortCode);
-
-      if (!normalized) {
-        return NextResponse.json({ error: "Alias cannot be empty" }, { status: 400 });
-      }
-
-      
-      //drops on all slashes (/), dots (.), spaces, and backslashes.
-      const isValidSlugPattern = /^[a-z0-9-_]+$/.test(normalized);
-      if (!isValidSlugPattern) {
-        return NextResponse.json(
-          { error: "Alias can only contain letters, numbers, hyphens, and underscores" }, 
-          { status: 400 }
-        );
-      }
-
-      
-      // Prevents grabbing sub-paths like "admin/settings" or "api-v2"
-      const isReserved = Array.from(RESERVED_PATHS).some(
-        (path) => normalized === path || normalized.startsWith(`${path}/`) || normalized.startsWith(`${path}-`)
-      );
-      if (isReserved) {
-        return NextResponse.json({ error: "That alias is reserved" }, { status: 400 });
-      }
-
-      // Prevent overflow rendering breakage lengths
-      if (normalized.length < 3 || normalized.length > 30) {
-        return NextResponse.json({ error: "Alias must be between 3 and 30 characters" }, { status: 400 });
-      }
-
-      const existing = await prisma.shortLink.findUnique({
-        where: { shortCode: normalized },
-      });
-      if (existing) {
-        return NextResponse.json({ error: "Alias already taken" }, { status: 409 });
-      }
-
-      finalShortCode = normalized;
-    }
 
     if (!link) {
-      return NextResponse.json({ error: "URL field is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "URL field is required" },
+        { status: 400 },
+      );
     }
 
-    // 4. ✨ FIXED DATE LAYER: Explicitly mapping empty input strings directly to true null states
-    const liveDate = goLiveAt && goLiveAt.trim() !== "" ? new Date(goLiveAt) : null;
-    const expiryDate = expiresAt && expiresAt.trim() !== "" ? new Date(expiresAt) : null;
+    // Checking for Looping issues
+    try {
+      const appBaseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL || request.headers.get("host") || "";
+      const sanitizedAppUrl = appBaseUrl.startsWith("http")
+        ? appBaseUrl
+        : `https://${appBaseUrl}`;
+      const appHost = new URL(sanitizedAppUrl).hostname.toLowerCase();
+      const targetHost = new URL(link).hostname.toLowerCase();
+
+      if (
+        appHost &&
+        (targetHost === appHost || targetHost.endsWith("." + appHost))
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "You cannot shorten links belonging to this shortener application website itself",
+          },
+          { status: 400 },
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid target URL format provided" },
+        { status: 400 },
+      );
+    }
+
+    
+    const liveDate =
+      goLiveAt && goLiveAt.trim() !== "" ? new Date(goLiveAt) : null;
+    const expiryDate =
+      expiresAt && expiresAt.trim() !== "" ? new Date(expiresAt) : null;
 
     if (liveDate && expiryDate && liveDate >= expiryDate) {
       return NextResponse.json(
         { error: "Expiration date must be later than the Go-Live date" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const databaseRecord = await prisma.shortLink.create({
-      data: {
+
+    let finalShortCode: string;
+
+    if (shortCode && typeof shortCode === "string") {
+      
+      const normalized = normalizeSlug(shortCode);
+
+      if (!normalized) {
+        return NextResponse.json(
+          { error: "Alias cannot be empty" },
+          { status: 400 },
+        );
+      }
+
+      if (normalized.length < 3 || normalized.length > 30) {
+        return NextResponse.json(
+          { error: "Alias length must be strictly between 3 and 30 characters" },
+          { status: 400 },
+        );
+      }
+
+      if (!/^[a-z0-9-_]+$/.test(normalized)) {
+        return NextResponse.json(
+          {
+            error:
+              "Alias can only contain letters, numbers, hyphens, and underscores",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (RESERVED_PATHS.has(normalized)) {
+        return NextResponse.json(
+          { error: "That alias is reserved" },
+          { status: 400 },
+        );
+      }
+
+      // Check if custom alias is already used by someone else
+      const existingAlias = await prisma.shortLink.findUnique({
+        where: { shortCode: normalized },
+      });
+      if (existingAlias) {
+        return NextResponse.json(
+          { error: "Alias already taken" },
+          { status: 409 },
+        );
+      }
+
+      finalShortCode = normalized;
+    } else {
+    
+      finalShortCode = createSecureNanoId();
+    }
+
+    const uniqueOwnerToken = customAlphabet(base62Alphabet, 24)();
+    // To check whether the shortUrl exists or not
+    const databaseRecord = await prisma.shortLink.upsert({
+      where: {
+        originalUrl: link,
+      },
+     
+      update: {},
+      // If the URL is fresh insert it normally using Nano ID.
+      create: {
         originalUrl: link,
         shortCode: finalShortCode,
-        goLiveAt: liveDate,    
-        expiresAt: expiryDate,  
+        secretToken: uniqueOwnerToken,
+        goLiveAt: liveDate,
+        expiresAt: expiryDate,
+        
       },
     });
 
+    // Determine if it was newly created or reused to pass the accurate HTTP status code
+    const isNew = databaseRecord.shortCode === finalShortCode;
+
     return NextResponse.json(
-      { shortCode: databaseRecord.shortCode },
-      { status: 201 }
+      {
+        shortCode: databaseRecord.shortCode,
+        secretToken: databaseRecord.secretToken,
+        message: isNew ? "New shortlink created" : "Reused existing shortlink",
+      },
+      { status: isNew ? 201 : 200 },
     );
   } catch (error) {
     console.error("Database save failed:", error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        return NextResponse.json(
+          { error: "Alias is already taken" },
+          { status: 409 },
+        );
+      }
+    }
+
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
-}
-
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ code: string }> } 
-) {
-  const { code } = await params; 
-
-  const linkRecord = await prisma.shortLink.findUnique({
-    where: { shortCode: code },
-  });
-
-  if (!linkRecord) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const now = new Date();
-
-  if (linkRecord.goLiveAt && now < linkRecord.goLiveAt) {
-    return NextResponse.json(
-      { error: "Link is not active yet" },
-      { status: 403 }
-    );
-  }
-
-  if (linkRecord.expiresAt && now >= linkRecord.expiresAt) {
-    return NextResponse.json({ error: "Link has expired" }, { status: 410 });
-  }
-
-  await prisma.shortLink.update({
-    where: { id: linkRecord.id },
-    data: { currentClicks: { increment: 1 } },
-  });
-
-  // Convert destination cleanly into a true absolute URL instance to prevent routing traps
-  const redirectUrl = new URL(linkRecord.originalUrl);
-  return NextResponse.redirect(redirectUrl, 307);
 }

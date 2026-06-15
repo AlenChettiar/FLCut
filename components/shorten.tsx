@@ -3,66 +3,153 @@
 import { Input } from "@base-ui/react";
 import { Button } from "@/components/ui/button";
 import React, { useState } from "react";
-import { ArrowRight, Link, Calendar, Copy, Check } from "lucide-react";
+import { ArrowRight, Link, Calendar, Copy, Check, X, ArrowUpRight } from "lucide-react";
 
 interface ShortenProps {
   onLinkCreated: () => void;
 }
-export default function Shorten({ onLinkCreated }: ShortenProps) {
-  const [shortenedUrl, setShortenedUrl] = useState<string>("");
-  const [isCopied, setIsCopied] = useState<boolean>(false);
 
-  async function handleSubmit(formData: FormData) {
+export default function Shorten({ onLinkCreated }: ShortenProps) {
+  
+  const [activePopupUrl, setActivePopupUrl] = useState<string>("");
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+ 
+const [dashboardUrl, setDashboardUrl] = useState<string>("");
+
+
+ 
+   async function handleSubmit(formData: FormData) {
     const link = formData.get("link");
     const goLiveAt = formData.get("goLiveAt");
     const expiresAt = formData.get("expiresAt");
-    const shortCode=formData.get("shortCode");
-    setShortenedUrl("");
+    
+
+    setActivePopupUrl("");
+    setDashboardUrl(""); 
     setIsCopied(false);
 
     try {
       const response = await fetch("/api/shortenLink", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ link, goLiveAt, expiresAt ,shortCode}),
+        body: JSON.stringify({ link, goLiveAt, expiresAt }),
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Server API returned an error:", response.status, errorText);
+        let errorMsg = "An unknown error occurred";
+        try {
+          const errData = await response.json();
+          errorMsg = errData.error || errorMsg;
+        } catch {
+          errorMsg = `Server API returned an error: ${response.status}`;
+        }
+        console.error(errorMsg);
+        alert(errorMsg); 
         return;
       }
       
       const data = await response.json();
-      console.log("Successfully Shortened:", data);
-      onLinkCreated();
+      // console.log("Successfully Shortened:", data);
 
-      if (data.shortCode) {
+      // Check for shortCode
+      if (data.shortCode && data.secretToken) {
         const fullShortUrl = `${window.location.origin}/${data.shortCode}`;
-        setShortenedUrl(fullShortUrl);
+        const fullyProtectedDashboardUrl = `/dashboard/${data.shortCode}?token=${data.secretToken}`;
+        setActivePopupUrl(fullShortUrl);             
+        setDashboardUrl(fullyProtectedDashboardUrl);
+        try {
+          await navigator.clipboard.writeText(fullShortUrl);
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 3000);
+        } catch (clipError) {
+          console.warn("Browser blocked automatic clipboard injection:", clipError);
+        }
+        onLinkCreated();
       }
 
     } catch (error) {
       console.error("Error in shortening : ", error);
     }
   }
-  const handleCopyLink = async () => {
-    if (!shortenedUrl) return;
-    try {
-      await navigator.clipboard.writeText(shortenedUrl);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000); 
-    } catch (err) {
-      console.error("Failed to copy text: ", err);
-    }
-  };
 
-  return (
-    <div className="w-full space-y-6">
+
+
+      
+      {/*Pop up*/}
+      return (
+  <div className="w-full relative">
+    
+    {/* Top pop up*/}
+    {activePopupUrl && (
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-2xl shadow-neutral-900/10 flex flex-col space-y-3">
+          
+          {/* Row 1: Header Text Info & Close Cross Action */}
+          <div className="flex items-center justify-between pl-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+              {isCopied ? "Link Copied to Clipboard!" : "Short URL Generated!! "}
+            </span>
+            <button
+              type="button"
+              onClick={() => setActivePopupUrl("")} // Safely clears and closes the whole window
+              className="text-neutral-400 hover:text-neutral-600 p-1 rounded-lg hover:bg-neutral-100 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Row 2: Displaying the Clickable Link with its Copy Icon Button */}
+          <div className="flex items-center justify-between gap-3 bg-neutral-50 border border-neutral-150 rounded-xl p-2 pl-3">
+            <a 
+              href={activePopupUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-semibold text-neutral-800 hover:text-blue-600 hover:underline truncate max-w-[240px]"
+            >
+              {activePopupUrl}
+            </a>
+            <Button
+              type="button"
+              variant={isCopied ? "default" : "ghost"}
+              size="icon"
+              onClick={() => {
+                navigator.clipboard.writeText(activePopupUrl);
+                setIsCopied(true);
+                setTimeout(() => setIsCopied(false), 3000);
+              }}
+              className={`h-9 w-9 rounded-xl transition-all duration-200 shrink-0 ${
+                isCopied 
+                  ? "bg-green-600 hover:bg-green-600 text-white" 
+                  : "text-neutral-500 hover:bg-neutral-100"
+              }`}
+            >
+              {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+          {dashboardUrl && (
+            <div className="pt-1 border-t border-neutral-100 flex justify-end">
+              <a 
+                href={dashboardUrl} 
+                className="text-xs font-bold text-neutral-500 hover:text-blue-600 flex items-center gap-1 group transition-colors"
+              >
+                <span>View Private Live Performance Metrics</span>
+                <ArrowUpRight className="h-3.5 w-3.5 text-neutral-400 group-hover:text-blue-500 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </a>
+            </div>
+          )}
+
+        </div>
+      </div>
+    )} 
+
+
+
+      
+
+
+      {/* Input Form Layout */}
       <form action={handleSubmit} className="w-full">
         <div className="space-y-5 mt-10">
-          
-          {/* Main Input */}
           <div className="relative flex items-center">
             <Link className="absolute left-4 h-5 w-5 text-neutral-400 pointer-events-none" />
             <Input
@@ -73,15 +160,7 @@ export default function Shorten({ onLinkCreated }: ShortenProps) {
               className="h-14 w-full pl-12 pr-4 text-base bg-neutral-50/50 border-neutral-200/80 rounded-2xl transition-all duration-200 placeholder:text-neutral-400 focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-black/5 focus-visible:border-black"
             />
           </div>
-          {/* Custom Alias */}
-          <Input
-  name="shortCode"
-  type="text"
-  placeholder="Custom alias (optional)"
-  className="h-14 w-full px-4 text-base bg-neutral-50/50 border-neutral-200/80 rounded-2xl"
-/>
 
-          {/* Live date input */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500 pl-1 flex items-center gap-1.5">
@@ -91,7 +170,7 @@ export default function Shorten({ onLinkCreated }: ShortenProps) {
               <Input 
                 name="goLiveAt" 
                 type="datetime-local" 
-                className="h-12 w-full px-4 text-sm bg-neutral-50/50 border-neutral-200/80 rounded-xl transition-all duration-200 text-neutral-700 cursor-pointer focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-black/5 focus-visible:border-black [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-calendar-picker-indicator]:transition-opacity"
+                className="h-12 w-full px-4 text-sm bg-neutral-50/50 border-neutral-200/80 rounded-xl transition-all duration-200 text-neutral-700 cursor-pointer focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-black/5 focus-visible:border-black"
               />
             </div>
 
@@ -103,11 +182,11 @@ export default function Shorten({ onLinkCreated }: ShortenProps) {
               <Input 
                 name="expiresAt" 
                 type="datetime-local" 
-                className="h-12 w-full px-4 text-sm bg-neutral-50/50 border-neutral-200/80 rounded-xl transition-all duration-200 text-neutral-700 cursor-pointer focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-black/5 focus-visible:border-black [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-calendar-picker-indicator]:transition-opacity"
+                className="h-12 w-full px-4 text-sm bg-neutral-50/50 border-neutral-200/80 rounded-xl transition-all duration-200 text-neutral-700 cursor-pointer focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-black/5 focus-visible:border-black"
               />
             </div>
           </div>
-          
+
           <Button
             type="submit"
             className="group h-14 w-full bg-neutral-900 text-white font-semibold text-base rounded-2xl transition-all duration-300 hover:bg-black hover:shadow-lg hover:shadow-neutral-900/10 active:scale-[0.99] flex items-center justify-center gap-2"
@@ -117,37 +196,6 @@ export default function Shorten({ onLinkCreated }: ShortenProps) {
           </Button>
         </div>
       </form>
-      {/* {shortenedUrl && (
-        <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <p className="text-xs font-bold uppercase tracking-wider text-blue-600 pl-1">
-            Your Shortened URL is Ready!!
-          </p>
-          <div className="flex items-center justify-between gap-3 bg-white border border-neutral-200/60 rounded-xl p-2 pl-3">
-            <a 
-              href={shortenedUrl} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-sm font-medium text-neutral-800 hover:text-blue-600 hover:underline truncate"
-            >
-              {shortenedUrl}
-            </a>
-            <Button
-              type="button"
-              onClick={handleCopyLink}
-              variant={isCopied ? "default" : "ghost"}
-              size="icon"
-              className={`h-9 w-9 rounded-lg shrink-0 transition-all duration-200 ${
-                isCopied 
-                  ? "bg-green-600 hover:bg-green-600 text-white" 
-                  : "text-neutral-500 hover:bg-neutral-100"
-              }`}
-            >
-              {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-      )} */}
-
     </div>
   );
 }

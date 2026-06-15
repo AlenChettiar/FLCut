@@ -1,6 +1,7 @@
 "use client";
+
 import { Button } from "@/components/ui/button";
-import { CopyIcon, EyeIcon } from "lucide-react";
+import { CopyIcon, EyeIcon, Check, X, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
@@ -10,19 +11,24 @@ type ShortLink = {
   shortCode?: string;
   currentClicks?: number;
 };
+
 interface RecentURLsProps {
   refreshKey: number;
 }
+
 export default function RecentURLs({ refreshKey }: RecentURLsProps) {
   const [urls, setUrls] = useState<ShortLink[]>([]);
-  const shortURL = (code: string) =>
-    `${process.env.NEXT_PUBLIC_BASE_URL}${code}`;
-  const copyURL = async (code: string) => {
-    const url = shortURL(code);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+  const shortURL = (code: string) =>
+    `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}${code}`;
+
+  const handleUrlAction = async (code: string) => {
+    const fullUrl = shortURL(code);
     try {
-      await navigator.clipboard.writeText(url);
-      console.log("Copied:", url);
+      await navigator.clipboard.writeText(fullUrl);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 3000);
     } catch (error) {
       console.error("Copy failed", error);
     }
@@ -31,7 +37,7 @@ export default function RecentURLs({ refreshKey }: RecentURLsProps) {
   useEffect(() => {
     const fetchLink = async () => {
       try {
-        const response = await fetch("/api/urls");
+        const response = await fetch(`/api/urls?t=${Date.now()}`, { cache: 'no-store' });
         if (!response.ok) throw new Error(await response.text());
         const data: ShortLink[] = await response.json();
         setUrls(data);
@@ -47,6 +53,7 @@ export default function RecentURLs({ refreshKey }: RecentURLsProps) {
       <h2 className="text-xl font-bold tracking-tight text-neutral-900">
         Recent URLs
       </h2>
+      
       <div className="max-h-72 md:max-h-96 overflow-y-auto">
         <ul className="space-y-3">
           {urls.map((url) => {
@@ -60,7 +67,7 @@ export default function RecentURLs({ refreshKey }: RecentURLsProps) {
                 <div className="flex-1 min-w-0">
                   <Link
                     href={shortURL(url.shortCode)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline block truncate"
+                    className="text-sm font-medium text-neutral-700 hover:text-blue-600 hover:underline block truncate"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -73,9 +80,13 @@ export default function RecentURLs({ refreshKey }: RecentURLsProps) {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-200/50"
-                    onClick={() => url.shortCode && copyURL(url.shortCode)}
+                    onClick={() => url.shortCode && handleUrlAction(url.shortCode)}
                   >
-                    <CopyIcon className="w-4 h-4" />
+                    {copiedCode === url.shortCode ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <CopyIcon className="w-4 h-4" />
+                    )}
                   </Button>
 
                   <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium">
