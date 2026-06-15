@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { customAlphabet } from "nanoid";
 import { Prisma } from "@prisma/client";
+import { auth } from "@/auth"; // ✨ 1. Import our core Auth Engine
 
 const base62Alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -24,6 +25,14 @@ function normalizeSlug(value: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session || !session.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized: You must be logged in to create short links." },
+        { status: 401 }
+      );
+    }
+
     const { link, goLiveAt, expiresAt, shortCode } = await request.json();
 
     if (!link) {
@@ -62,7 +71,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    
     const liveDate =
       goLiveAt && goLiveAt.trim() !== "" ? new Date(goLiveAt) : null;
     const expiryDate =
@@ -75,11 +83,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-
     let finalShortCode: string;
 
     if (shortCode && typeof shortCode === "string") {
-      
       const normalized = normalizeSlug(shortCode);
 
       if (!normalized) {
@@ -126,17 +132,16 @@ export async function POST(request: NextRequest) {
 
       finalShortCode = normalized;
     } else {
-    
       finalShortCode = createSecureNanoId();
     }
 
     const uniqueOwnerToken = customAlphabet(base62Alphabet, 24)();
+    
     // To check whether the shortUrl exists or not
     const databaseRecord = await prisma.shortLink.upsert({
       where: {
         originalUrl: link,
       },
-     
       update: {},
       // If the URL is fresh insert it normally using Nano ID.
       create: {
@@ -145,11 +150,10 @@ export async function POST(request: NextRequest) {
         secretToken: uniqueOwnerToken,
         goLiveAt: liveDate,
         expiresAt: expiryDate,
-        
+        userId: session.user.id, 
       },
     });
 
-    // Determine if it was newly created or reused to pass the accurate HTTP status code
     const isNew = databaseRecord.shortCode === finalShortCode;
 
     return NextResponse.json(

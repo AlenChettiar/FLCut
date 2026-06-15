@@ -1,4 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FLCut
+
+FLCut is an High performance URL shortener built with Typescript,next.js,prisma and postgresql
+It supports short link creation, custom aliases, scheduled publishing, link expiry, analytics and user authentication
+## Tech Stack
+
+- next.js
+- Typescript
+- prisma ORM
+- postgreSQL (neon.db)
+- tailwind CSS
+
+## Features
+
+- short url generation
+- custom aliases
+- scheduling and expiry of links
+- user authentication
+- dashboard analytics
+- click tracking
+- enable / disable links
+- Delete links
+
+
+## Setup
+
+Create a `.env` file:
+
+```env
+DATABASE_URL=postgresql://...
+AUTH_SECRET=your-secret
+BASE_URL=http://localhost:3000
+```
 
 ## Getting Started
 

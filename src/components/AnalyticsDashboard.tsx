@@ -53,7 +53,7 @@ const fallbackData: AnalyticsPayload = {
     { time: "7 PM", clicks: 35 },
   ],
   referrers: [
-    { name: "Instagram", clicks: 180 },
+    { name: "Instagram", clicks: 180 }, 
     { name: "Twitter / X", clicks: 95 },
     { name: "Direct / Email", clicks: 40 },
   ],
@@ -195,18 +195,19 @@ export default function AnalyticsDashboard({
     return () => controller.abort();
   }, [endpoint]);
 
-  const referrerMax = Math.max(
-    ...analytics.referrers.map((referrer) => referrer.clicks),
+   const referrerMax = Math.max(
+    ...(analytics.referrers || []).map((referrer) => referrer.clicks),
     1,
   );
   const browserMax = Math.max(
-    ...analytics.browsers.map((browser) => browser.clicks),
+    ...(analytics.browsers || []).map((browser) => browser.clicks),
     1,
   );
   const locationMax = Math.max(
-    ...analytics.locations.map((loc) => loc.clicks),
+    ...(analytics.locations || []).map((loc) => loc.clicks),
     1,
   );
+
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950">
@@ -332,7 +333,7 @@ export default function AnalyticsDashboard({
             </div>
 
             <div className="mt-6 space-y-4">
-              {analytics.referrers.map((referrer) => (
+              {(analytics.referrers || []).map((referrer) => (
                 <BarRow
                   key={referrer.name}
                   name={referrer.name}
@@ -399,7 +400,7 @@ export default function AnalyticsDashboard({
             </div>
 
             <div className="mt-6 space-y-4">
-              {analytics.browsers.map((browser) => (
+              {(analytics.browsers|| []).map((browser) => (
                 <BarRow
                   key={browser.name}
                   name={browser.name}
@@ -422,7 +423,7 @@ export default function AnalyticsDashboard({
             </div>
 
             <div className="mt-6 space-y-4">
-              {analytics.locations.map((loc) => (
+              {(analytics.locations || []).map((loc) => (
                 <BarRow
                   key={loc.name}
                   name={loc.name}

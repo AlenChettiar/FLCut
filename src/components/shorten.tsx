@@ -129,7 +129,7 @@ const [dashboardUrl, setDashboardUrl] = useState<string>("");
           {dashboardUrl && (
             <div className="pt-1 border-t border-neutral-100 flex justify-end">
               <a 
-                href={dashboardUrl} 
+                href={dashboardUrl}
                 className="text-xs font-bold text-neutral-500 hover:text-blue-600 flex items-center gap-1 group transition-colors"
               >
                 <span>View Private Live Performance Metrics</span>

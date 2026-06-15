@@ -10,6 +10,16 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  password      String
+  name          String
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  links         ShortLink[]
+  @@map("users")
+}
 model ShortLink {
   id           String    @id @default(cuid())
   originalUrl  String    @unique @map("original_url") 
@@ -24,6 +34,8 @@ model ShortLink {
   currentClicks Int      @default(0) @map("current_clicks")
   version       Int      @default(0)
   analytics    ClickAnalytics[]
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([shortCode])
   @@map("short_links")
