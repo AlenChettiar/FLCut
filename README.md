@@ -1,25 +1,26 @@
-# FLCut
+# Sync Lync
 
-FLCut is an High performance URL shortener built with Typescript,next.js,prisma and postgresql
-It supports short link creation, custom aliases, scheduled publishing, link expiry, analytics and user authentication
+Sync lync is a URL shortener built with Next.js 16, Prisma, PostgreSQL, and TypeScript.
+
+
 ## Tech Stack
 
-- next.js
-- Typescript
-- prisma ORM
-- postgreSQL (neon.db)
-- tailwind CSS
+- Next.js 16 (App Router, Turbopack)
+- TypeScript
+- Prisma ORM v7
+- PostgreSQL (Neon)
+- Tailwind CSS v4
+- Auth.js v5 (NextAuth)
 
 ## Features
 
-- short url generation
+- short URL generation
 - custom aliases
 - scheduling and expiry of links
 - user authentication
 - dashboard analytics
-- click tracking
+- click tracking (unique, bots, referrers, devices, browsers, locations)
 - enable / disable links
-- Delete links
 
 
 ## Setup
@@ -29,40 +30,167 @@ Create a `.env` file:
 ```env
 DATABASE_URL=postgresql://...
 AUTH_SECRET=your-secret
-BASE_URL=http://localhost:3000
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
 
-## Getting Started
+Install dependencies:
 
-First, run the development server:
+```bash
+npm install
+```
+
+Run migrations:
+
+```bash
+npx prisma migrate dev
+```
+
+Generate Prisma client:
+
+```bash
+npx prisma generate
+```
+
+Start development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Method | Endpoint                     | Description                  |
+|--------|------------------------------|------------------------------|
+| POST   | `/api/shortenLink`           | Create short link            |
+| GET    | `/api/urls`                  | List authenticated user's links |
+| GET    | `/api/analytics/[code]`      | Get analytics for a link     |
+| POST   | `/api/auth/register`         | Register new user            |
+| GET/POST | `/api/auth/[...nextauth]`  | Auth.js session handlers     |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Data Model
 
-## Learn More
+### User
 
-To learn more about Next.js, take a look at the following resources:
+Stores registered accounts.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Field      |
+|------------|
+| id         |
+| email      |
+| password   |
+| name       |
+| createdAt  |
+| updatedAt  |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### ShortLink
 
-## Deploy on Vercel
+Stores the short URL and its lifecycle state. Belongs to a User.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Field          |
+|----------------|
+| id             |
+| originalUrl    |
+| shortCode      |
+| secretToken    |
+| goLiveAt       |
+| expiresAt      |
+| clickCap       |
+| waitlistUrl    |
+| currentClicks  |
+| version        |
+| userId         |
+| createdAt      |
+| updatedAt      |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### ClickAnalytics
+
+Stores an immutable event log entry for each redirect.
+
+| Field     |
+|-----------|
+| id        |
+| linkId    |
+| timestamp |
+| isUnique  |
+| referrer  |
+| device    |
+| browser   |
+| country   |
+| region    |
+| isBot     |
+
+
+
+## Architecture
+
+```text
+User registers and login
+     ↓
+Shorten long urls
+     ↓
+both original and short urls r stored in db
+     ↓
+upon clicking the short url
+     ↓
+checks for validity
+     ↓
+the link is tracked(users location ,ip ,etc is fetched)
+     ↓
+redirects to original url
+```
+
+## Assumptions
+
+- Authentication is required for creating links
+- prevent users from shortening already shortend links
+- ensure same short urls for a long url
+
+
+## Tradeoff
+- when the user clicks on the shortlink ,instead of redirection it first fetched the deatils of the user for the analytics 
+- At scale this will add latency 
+- At scale server side redis needs to be used which is complex 
+- also could have added a feature where redis stores the urls on server side which have high traffic (like >100 users in a hrs)
+
+
+## If I Only Had 4 Hours
+
+I would have built:
+1. The core requirements(link creation,scheduling,expiry,customAlias)
+2. redirection
+3. basic dashboard analytics
+
+Probably not in 4 hours:
+
+1. advanced analytics
+2. other contraints (like preventing user to create short link of the same domain,data redundancy i.e. to prevent multiple shortlink of the same original url)
+3.  authentication 
+
+## Why This Data Model?
+
+made the schema based on intuition 
+
+## Deployment
+
+- Vercel (serverless, Edge proxy)
+- Neon PostgreSQL (serverless Postgres)
+
+Required environment variables on Vercel:
+
+```env
+DATABASE_URL=
+AUTH_SECRET=
+NEXT_PUBLIC_BASE_URL=
+AUTH_TRUST_HOST=true
+AUTH_URL=
+```
+
+## Future Features
+
+- qr code also with short urls
+- enhance UI/UX (light/dark mode, animations, improved responsiveness)
+- custom domain support
+- reduce latency (to reduce latency we can use redis to prevent db lookups)
+- admin panel
+- CI/CD workflows 
+
