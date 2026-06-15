@@ -28,7 +28,7 @@ export async function GET(
       return NextResponse.json({ error: "Short link not found" }, { status: 404 });
     }
 
-    const logs = linkRecord.analytics;
+    const logs: any[] = linkRecord.analytics;
 
     const totalClicks = logs.length;
     const uniqueClicks = logs.filter((log) => log.isUnique && !log.isBot).length;
