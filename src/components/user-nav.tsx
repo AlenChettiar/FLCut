@@ -27,15 +27,8 @@ export default function UserNav({ name, email }: UserNavProps) {
 
         {/* User actions */}
         <div className="flex items-center gap-3">
-          {/* Dashboard link */}
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
-          >
-            <LayoutDashboard size={15} />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Link>
-
+          
+         
           {/* Avatar + name */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold select-none">
