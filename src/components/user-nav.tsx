@@ -27,8 +27,6 @@ export default function UserNav({ name, email }: UserNavProps) {
 
         {/* User actions */}
         <div className="flex items-center gap-3">
-          
-         
           {/* Avatar + name */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold select-none">

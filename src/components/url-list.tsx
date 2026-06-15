@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { CopyIcon, EyeIcon, Check, X, ArrowUpRight } from "lucide-react";
+import { CopyIcon, EyeIcon, Check, BarChart2 } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
@@ -93,6 +93,17 @@ export default function RecentURLs({ refreshKey }: RecentURLsProps) {
                     <EyeIcon className="h-4 w-4 text-neutral-400" />
                     <span>{url.currentClicks ?? 0}</span>
                   </div>
+
+                  <Link href={`/dashboard/${url.shortCode}`}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-neutral-400 hover:text-blue-600 hover:bg-blue-50"
+                      title="View analytics"
+                    >
+                      <BarChart2 className="w-4 h-4" />
+                    </Button>
+                  </Link>
                 </div>
               </li>
             );

@@ -270,7 +270,7 @@ export default function AnalyticsDashboard({
             <HelpCircle className="h-4 w-4 shrink-0 text-neutral-300" />
           </div>
 
-          <div className="mt-6 w-full h-[320px] rounded-2xl bg-white">
+          <div className="mt-6 w-full h-[320px] min-h-[320px] rounded-2xl bg-white">
             {mounted && (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart

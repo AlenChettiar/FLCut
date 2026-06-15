@@ -35,25 +35,38 @@ export async function GET(
     const botsBlocked = logs.filter((log) => log.isBot).length;
 
     const hourlyMap: Record<string, number> = {
-      "9 AM": 0,
-      "11 AM": 0,
-      "1 PM": 0,
-      "3 PM": 0,
-      "5 PM": 0,
-      "7 PM": 0,
+      "12 AM": 0,
+      "2 AM": 0,
+      "4 AM": 0,
+      "6 AM": 0,
+      "8 AM": 0,
+      "10 AM": 0,
+      "12 PM": 0,
+      "2 PM": 0,
+      "4 PM": 0,
+      "6 PM": 0,
+      "8 PM": 0,
+      "10 PM": 0,
     };
 
     logs.forEach((log) => {
       if (log.isBot) return;
 
       const hour = new Date(log.timestamp).getHours();
-
-      if (hour >= 8 && hour < 10) hourlyMap["9 AM"]++;
-      else if (hour >= 10 && hour < 12) hourlyMap["11 AM"]++;
-      else if (hour >= 12 && hour < 14) hourlyMap["1 PM"]++;
-      else if (hour >= 14 && hour < 16) hourlyMap["3 PM"]++;
-      else if (hour >= 16 && hour < 18) hourlyMap["5 PM"]++;
-      else hourlyMap["7 PM"]++;
+      const bucket = Math.floor(hour / 2) * 2; // round down to nearest even hour
+      const label =
+        bucket === 0  ? "12 AM" :
+        bucket === 2  ? "2 AM"  :
+        bucket === 4  ? "4 AM"  :
+        bucket === 6  ? "6 AM"  :
+        bucket === 8  ? "8 AM"  :
+        bucket === 10 ? "10 AM" :
+        bucket === 12 ? "12 PM" :
+        bucket === 14 ? "2 PM"  :
+        bucket === 16 ? "4 PM"  :
+        bucket === 18 ? "6 PM"  :
+        bucket === 20 ? "8 PM"  : "10 PM";
+      hourlyMap[label]++;
     });
 
     const graphTimelineData = Object.entries(hourlyMap).map(([time, clicks]) => ({ time, clicks }));
