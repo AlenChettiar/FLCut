@@ -3,7 +3,7 @@
 import { Input } from "@base-ui/react";
 import { Button } from "@/components/ui/button";
 import React, { useState } from "react";
-import { ArrowRight, Link, Calendar, Copy, Check, X, ArrowUpRight } from "lucide-react";
+import { ArrowRight, Link, Calendar, Copy, Check, X, ArrowUpRight, Pencil } from "lucide-react";
 
 interface ShortenProps {
   onLinkCreated: () => void;
@@ -22,7 +22,7 @@ const [dashboardUrl, setDashboardUrl] = useState<string>("");
     const link = formData.get("link");
     const goLiveAt = formData.get("goLiveAt");
     const expiresAt = formData.get("expiresAt");
-    
+    const shortCode = formData.get("shortCode") || undefined;
 
     setActivePopupUrl("");
     setDashboardUrl(""); 
@@ -32,7 +32,7 @@ const [dashboardUrl, setDashboardUrl] = useState<string>("");
       const response = await fetch("/api/shortenLink", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ link, goLiveAt, expiresAt }),
+        body: JSON.stringify({ link, goLiveAt, expiresAt, shortCode }),
       });
       
       if (!response.ok) {
@@ -158,6 +158,17 @@ const [dashboardUrl, setDashboardUrl] = useState<string>("");
               placeholder="Paste your long link here..."
               required
               className="h-14 w-full pl-12 pr-4 text-base bg-neutral-50/50 border-neutral-200/80 rounded-2xl transition-all duration-200 placeholder:text-neutral-400 focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-black/5 focus-visible:border-black"
+            />
+          </div>
+
+          {/* Custom alias */}
+          <div className="relative flex items-center">
+            <Pencil className="absolute left-4 h-4 w-4 text-neutral-400 pointer-events-none" />
+            <Input
+              name="shortCode"
+              type="text"
+              placeholder="Custom alias (optional) e.g. my-link"
+              className="h-12 w-full pl-12 pr-4 text-sm bg-neutral-50/50 border-neutral-200/80 rounded-2xl transition-all duration-200 placeholder:text-neutral-400 focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-black/5 focus-visible:border-black"
             />
           </div>
 
