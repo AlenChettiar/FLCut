@@ -8,7 +8,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 flex flex-col">
-      {/* Sticky top navbar */}
+      
       {user && (
         <UserNav
           name={user.name ?? "User"}
@@ -22,7 +22,7 @@ export default async function Home() {
           {/* Hero */}
           <div className="space-y-2 text-center">
             <h1 className="text-4xl md:text-5xl font-black tracking-tight text-black">
-              FLCut<span className="text-blue-600">.</span>
+              Short Lync<span className="text-blue-600">.</span>
             </h1>
             <p className="text-sm md:text-base text-neutral-500 font-medium tracking-wide">
               Shorten your URL instantly

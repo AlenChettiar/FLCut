@@ -84,7 +84,7 @@ const [dashboardUrl, setDashboardUrl] = useState<string>("");
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 animate-in fade-in slide-in-from-top-4 duration-300">
         <div className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-2xl shadow-neutral-900/10 flex flex-col space-y-3">
           
-          {/* Row 1: Header Text Info & Close Cross Action */}
+          
           <div className="flex items-center justify-between pl-1">
             <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
               {isCopied ? "Link Copied to Clipboard!" : "Short URL Generated!! "}
@@ -98,7 +98,7 @@ const [dashboardUrl, setDashboardUrl] = useState<string>("");
             </button>
           </div>
 
-          {/* Row 2: Displaying the Clickable Link with its Copy Icon Button */}
+          
           <div className="flex items-center justify-between gap-3 bg-neutral-50 border border-neutral-150 rounded-xl p-2 pl-3">
             <a 
               href={activePopupUrl}

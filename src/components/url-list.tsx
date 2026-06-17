@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { CopyIcon, EyeIcon, Check, BarChart2 } from "lucide-react";
+import { CopyIcon, EyeIcon, Check, BarChart2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
@@ -19,6 +19,7 @@ interface RecentURLsProps {
 export default function RecentURLs({ refreshKey }: RecentURLsProps) {
   const [urls, setUrls] = useState<ShortLink[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [deletingCode, setDeletingCode] = useState<string | null>(null);
 
   const shortURL = (code: string) =>
     `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/${code}`;
@@ -31,6 +32,24 @@ export default function RecentURLs({ refreshKey }: RecentURLsProps) {
       setTimeout(() => setCopiedCode(null), 3000);
     } catch (error) {
       console.error("Copy failed", error);
+    }
+  };
+
+  const handleDelete = async (code: string) => {
+    if (!confirm(`Delete /${code}? This cannot be undone.`)) return;
+    setDeletingCode(code);
+    try {
+      const res = await fetch(`/api/urls/${code}`, { method: "DELETE" });
+      if (res.ok) {
+        setUrls((prev) => prev.filter((u) => u.shortCode !== code));
+      } else {
+        const err = await res.json();
+        alert(err.error ?? "Failed to delete");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setDeletingCode(null);
     }
   };
 
@@ -104,6 +123,17 @@ export default function RecentURLs({ refreshKey }: RecentURLsProps) {
                       <BarChart2 className="w-4 h-4" />
                     </Button>
                   </Link>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-neutral-400 hover:text-red-600 hover:bg-red-50"
+                    title="Delete link"
+                    disabled={deletingCode === url.shortCode}
+                    onClick={() => url.shortCode && handleDelete(url.shortCode)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </li>
             );

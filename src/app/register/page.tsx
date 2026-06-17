@@ -41,7 +41,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md rounded-3xl border border-neutral-200 bg-white p-10 shadow-xl">
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-black tracking-tight text-neutral-900">Create Account</h1>
-          <p className="mt-2 text-sm text-neutral-500">Join to build secure, tracked short links.</p>
+          <p className="mt-2 text-sm text-neutral-500">Join to build secure, tracked short lyncs.</p>
         </div>
 
         {error && (

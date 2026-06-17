@@ -138,32 +138,26 @@ export async function POST(request: NextRequest) {
     const uniqueOwnerToken = customAlphabet(base62Alphabet, 24)();
     
     // To check whether the shortUrl exists or not
-    const databaseRecord = await prisma.shortLink.upsert({
-      where: {
-        originalUrl: link,
-      },
-      update: {},
-      // If the URL is fresh insert it normally using Nano ID.
-      create: {
-        originalUrl: link,
-        shortCode: finalShortCode,
-        secretToken: uniqueOwnerToken,
-        goLiveAt: liveDate,
-        expiresAt: expiryDate,
-        userId: session.user.id, 
-      },
-    });
+    const databaseRecord = await prisma.shortLink.create({ 
+      data:
+       { originalUrl: link, 
+        shortCode: finalShortCode, 
+        secretToken: uniqueOwnerToken, 
+        goLiveAt: liveDate, 
+        expiresAt: expiryDate, 
+        userId: session.user.id 
+      } });
 
     const isNew = databaseRecord.shortCode === finalShortCode;
 
     return NextResponse.json(
-      {
-        shortCode: databaseRecord.shortCode,
-        secretToken: databaseRecord.secretToken,
-        message: isNew ? "New shortlink created" : "Reused existing shortlink",
-      },
-      { status: isNew ? 201 : 200 },
-    );
+  {
+    shortCode: databaseRecord.shortCode,
+    secretToken: databaseRecord.secretToken,
+    message: "Short link created",
+  },
+  { status: 201 },
+);
   } catch (error) {
     console.error("Database save failed:", error);
 

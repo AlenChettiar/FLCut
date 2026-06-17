@@ -22,7 +22,7 @@ model User {
 }
 model ShortLink {
   id           String    @id @default(cuid())
-  originalUrl  String    @unique @map("original_url") 
+  originalUrl  String    @map("original_url") 
   shortCode    String    @unique @map("short_code")
   secretToken   String           @map("secret_token")
   createdAt    DateTime  @default(now()) @map("created_at")

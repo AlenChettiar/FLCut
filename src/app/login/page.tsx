@@ -12,23 +12,22 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    // Call Auth Engine
+
     const result = await signIn("credentials", {
       email,
       password,
-      redirect: false, 
+      redirect: false,
     });
 
-    // Handle the response
     if (result?.error) {
       setError("Invalid email or password.");
       setLoading(false);
     } else {
-      router.push("/"); 
+      router.push("/");
       router.refresh();
     }
   };
@@ -37,8 +36,12 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-md rounded-3xl border border-neutral-200 bg-white p-10 shadow-xl">
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-black tracking-tight text-neutral-900">Welcome Back</h1>
-          <p className="mt-2 text-sm text-neutral-500">Log in to manage your premium short links.</p>
+          <h1 className="text-3xl font-black tracking-tight text-neutral-900">
+            Welcome Back
+          </h1>
+          <p className="mt-2 text-sm text-neutral-500">
+            Log in to manage your premium short links.
+          </p>
         </div>
 
         {error && (
@@ -49,7 +52,9 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-sm font-bold text-neutral-700">Email Address</label>
+            <label className="text-sm font-bold text-neutral-700">
+              Email Address
+            </label>
             <input
               type="email"
               required
@@ -61,7 +66,9 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-bold text-neutral-700">Password</label>
+            <label className="text-sm font-bold text-neutral-700">
+              Password
+            </label>
             <input
               type="password"
               required
@@ -83,7 +90,10 @@ export default function LoginPage() {
 
         <p className="mt-8 text-center text-sm text-neutral-500">
           Don't have an account?{" "}
-          <Link href="/register" className="font-bold text-blue-600 hover:underline">
+          <Link
+            href="/register"
+            className="font-bold text-blue-600 hover:underline"
+          >
             Sign up here
           </Link>
         </p>
