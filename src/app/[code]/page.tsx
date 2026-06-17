@@ -1,14 +1,24 @@
+import { headers } from "next/headers";
 import prisma from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 
 interface CodePageProps {
-  params: Promise<{code: string;}>;}
+  params: Promise<{ code: string }>;
+}
 
 export default async function CodePage({ params }: CodePageProps) {
   const { code } = await params;
 
   const linkRecord = await prisma.shortLink.findUnique({
     where: { shortCode: code },
+    select: {
+      id: true,
+      originalUrl: true,
+      goLiveAt: true,
+      expiresAt: true,
+      clickCap: true,
+      currentClicks: true,
+    },
   });
 
   if (!linkRecord) notFound();
@@ -43,10 +53,28 @@ export default async function CodePage({ params }: CodePageProps) {
     );
   }
 
-  await prisma.shortLink.update({
-    where: { id: linkRecord.id },
-    data: { currentClicks: { increment: 1 } },
-  });
+  // Fire the tracking call before redirecting.
+  // We forward the incoming request headers so the tracker can read
+  // User-Agent, Referer, and Vercel geo headers directly.
+  try {
+    const incomingHeaders = await headers();
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000/";
+
+    await fetch(`${baseUrl}api/track/${code}`, {
+      method: "POST",
+      headers: {
+        // Forward the headers the tracking route needs
+        "user-agent":               incomingHeaders.get("user-agent")               ?? "",
+        "referer":                  incomingHeaders.get("referer")                  ?? "",
+        "x-forwarded-for":          incomingHeaders.get("x-forwarded-for")          ?? "",
+        "x-vercel-ip-country":      incomingHeaders.get("x-vercel-ip-country")      ?? "",
+        "x-vercel-ip-country-region": incomingHeaders.get("x-vercel-ip-country-region") ?? "",
+      },
+    });
+  } catch (err) {
+    // Tracking errors must never block the redirect
+    console.error("Tracking call failed:", err);
+  }
 
   redirect(linkRecord.originalUrl);
 }
