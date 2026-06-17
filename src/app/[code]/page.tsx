@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import prisma from "@/lib/db";
+import { trackClick } from "@/lib/track";
 import { notFound, redirect } from "next/navigation";
 
 interface CodePageProps {
@@ -16,8 +17,6 @@ export default async function CodePage({ params }: CodePageProps) {
       originalUrl: true,
       goLiveAt: true,
       expiresAt: true,
-      clickCap: true,
-      currentClicks: true,
     },
   });
 
@@ -53,27 +52,21 @@ export default async function CodePage({ params }: CodePageProps) {
     );
   }
 
-  // Fire the tracking call before redirecting.
-  // We forward the incoming request headers so the tracker can read
-  // User-Agent, Referer, and Vercel geo headers directly.
+  // Call the tracking function directly — no HTTP fetch, works in all environments.
   try {
     const incomingHeaders = await headers();
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000/";
 
-    await fetch(`${baseUrl}api/track/${code}`, {
-      method: "POST",
-      headers: {
-        // Forward the headers the tracking route needs
-        "user-agent":               incomingHeaders.get("user-agent")               ?? "",
-        "referer":                  incomingHeaders.get("referer")                  ?? "",
-        "x-forwarded-for":          incomingHeaders.get("x-forwarded-for")          ?? "",
-        "x-vercel-ip-country":      incomingHeaders.get("x-vercel-ip-country")      ?? "",
-        "x-vercel-ip-country-region": incomingHeaders.get("x-vercel-ip-country-region") ?? "",
-      },
+    await trackClick({
+      linkId:  linkRecord.id,
+      ua:      incomingHeaders.get("user-agent")               ?? "",
+      referer: incomingHeaders.get("referer"),
+      ip:      incomingHeaders.get("x-forwarded-for")?.split(",")[0].trim() ?? "0.0.0.0",
+      country: incomingHeaders.get("x-vercel-ip-country")        ?? "Unknown",
+      region:  incomingHeaders.get("x-vercel-ip-country-region") ?? "Unknown",
     });
   } catch (err) {
     // Tracking errors must never block the redirect
-    console.error("Tracking call failed:", err);
+    console.error("Click tracking failed:", err);
   }
 
   redirect(linkRecord.originalUrl);
