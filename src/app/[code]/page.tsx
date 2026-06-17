@@ -59,6 +59,7 @@ export default async function CodePage({ params }: CodePageProps) {
     await trackClick({
       linkId:  linkRecord.id,
       ua:      incomingHeaders.get("user-agent")               ?? "",
+      secChUa: incomingHeaders.get("sec-ch-ua"),
       referer: incomingHeaders.get("referer"),
       ip:      incomingHeaders.get("x-forwarded-for")?.split(",")[0].trim() ?? "0.0.0.0",
       country: incomingHeaders.get("x-vercel-ip-country")        ?? "Unknown",

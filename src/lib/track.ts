@@ -4,9 +4,22 @@ import prisma from "@/lib/db";
 const BOT_REGEX =
   /bot|crawl|spider|slurp|mediapartners|facebookexternalhit|whatsapp|telegram|curl|wget|python-requests|axios|okhttp|java\/|go-http-client|ruby|perl|php|node-fetch|scrapy|headless|phantomjs|puppeteer|playwright/i;
 
-/** Parse a User-Agent string into device type and browser name. */
-export function parseUserAgent(ua: string): { device: string; browser: string } {
+/**
+ * Parse a User-Agent string into device type and browser name.
+ * secChUa is the raw Sec-CH-UA header value, used to detect Brave — which
+ * deliberately sends an identical UA string to Chrome.
+ */
+export function parseUserAgent(
+  ua: string,
+  secChUa?: string | null,
+): { device: string; browser: string } {
   const isMobile = /mobile|android|iphone|ipad|ipod|windows phone/i.test(ua);
+
+  // Brave lists itself in Sec-CH-UA even though its UA string is identical to Chrome.
+  // Check this first so Brave is never misclassified as Chrome.
+  if (secChUa && /"Brave"/i.test(secChUa)) {
+    return { device: isMobile ? "mobile" : "desktop", browser: "Brave" };
+  }
 
   let browser = "Unknown";
   if (/edg\//i.test(ua))              browser = "Edge";
@@ -41,6 +54,7 @@ export function parseReferrer(referer: string | null): string {
 export interface TrackClickOptions {
   linkId:   string;
   ua:       string;
+  secChUa:  string | null;
   referer:  string | null;
   ip:       string;
   country:  string;
@@ -52,10 +66,10 @@ export interface TrackClickOptions {
  * Called directly from the server component — no HTTP round-trip required.
  */
 export async function trackClick(opts: TrackClickOptions): Promise<void> {
-  const { linkId, ua, referer, ip, country, region } = opts;
+  const { linkId, ua, secChUa, referer, ip, country, region } = opts;
 
   const isBot = BOT_REGEX.test(ua);
-  const { device, browser } = parseUserAgent(ua);
+  const { device, browser } = parseUserAgent(ua, secChUa);
   const referrer = parseReferrer(referer);
 
   // 24-hour uniqueness window: look for a prior non-bot hit with the same

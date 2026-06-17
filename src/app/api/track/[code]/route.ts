@@ -28,6 +28,7 @@ export async function POST(
     await trackClick({
       linkId:  linkRecord.id,
       ua:      request.headers.get("user-agent")               ?? "",
+      secChUa: request.headers.get("sec-ch-ua"),
       referer: request.headers.get("referer"),
       ip:      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "0.0.0.0",
       country: request.headers.get("x-vercel-ip-country")        ?? "Unknown",
