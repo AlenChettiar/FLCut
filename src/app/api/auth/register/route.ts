@@ -12,6 +12,30 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    // Email format validation (RFC-5322 subset — same pattern used by browsers)
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!EMAIL_REGEX.test(String(email).toLowerCase())) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address." },
+        { status: 400 }
+      );
+    }
+
+    // Password complexity validation
+    const passwordErrors: string[] = [];
+    if (password.length < 8)                    passwordErrors.push("at least 8 characters");
+    if (!/[A-Z]/.test(password))                passwordErrors.push("one uppercase letter");
+    if (!/[a-z]/.test(password))                passwordErrors.push("one lowercase letter");
+    if (!/[0-9]/.test(password))                passwordErrors.push("one number");
+    if (!/[^A-Za-z0-9]/.test(password))         passwordErrors.push("one special character");
+
+    if (passwordErrors.length > 0) {
+      return NextResponse.json(
+        { error: `Password must contain: ${passwordErrors.join(", ")}.` },
+        { status: 400 }
+      );
+    }
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
