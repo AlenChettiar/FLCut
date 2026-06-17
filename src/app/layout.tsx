@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FLCut",
+  title: "Short Lync",
   description: "URL Shortner by Alen for FLC",
 };
 

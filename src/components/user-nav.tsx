@@ -22,7 +22,7 @@ export default function UserNav({ name, email }: UserNavProps) {
       <div className="mx-auto max-w-xl px-4 py-3 flex items-center justify-between">
         {/* Brand */}
         <span className="text-lg font-black tracking-tight text-black">
-          FLCut<span className="text-blue-600">.</span>
+          Short Lync<span className="text-blue-600">.</span>
         </span>
 
         {/* User actions */}

@@ -2,7 +2,7 @@ import prisma from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { customAlphabet } from "nanoid";
 import { Prisma } from "@prisma/client";
-import { auth } from "@/auth"; // ✨ 1. Import our core Auth Engine
+import { auth } from "@/auth"; 
 
 const base62Alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

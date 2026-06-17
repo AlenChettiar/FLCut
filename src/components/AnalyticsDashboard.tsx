@@ -218,7 +218,7 @@ export default function AnalyticsDashboard({
               Link Analytics
             </h1>
             <p className="max-w-2xl text-sm text-neutral-500 md:text-base">
-              Spacious, premium analytics for FLCut with totals, unique
+              Spacious, premium analytics for Short Lyncs with totals, unique
               visitors, bot filtering, and traffic breakdowns.
             </p>
           </div>
