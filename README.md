@@ -181,7 +181,6 @@ Required environment variables on Vercel:
 DATABASE_URL=
 AUTH_SECRET=
 NEXT_PUBLIC_BASE_URL=
-AUTH_TRUST_HOST=true
 AUTH_URL=
 ```
 
