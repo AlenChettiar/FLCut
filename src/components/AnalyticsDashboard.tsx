@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart3, Globe, HelpCircle, Smartphone, Users } from "lucide-react";
+import { BarChart3, Globe, HelpCircle, MousePointerClick, Users } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type AnalyticsSummary = {
@@ -40,41 +40,10 @@ type AnalyticsDashboardProps = {
   shortCode?: string;
 };
 
-const fallbackData: AnalyticsPayload = {
-  originalUrl: "https://flcut.finiteloop.club/hackfest26",
-  shortCode: "hackfest26",
-  summary: { totalClicks: 315, uniqueClicks: 240, botsBlocked: 42 },
-  timeline: [
-    { time: "9 AM", clicks: 14 },
-    { time: "11 AM", clicks: 28 },
-    { time: "1 PM", clicks: 45 },
-    { time: "3 PM", clicks: 145 },
-    { time: "5 PM", clicks: 82 },
-    { time: "7 PM", clicks: 35 },
-  ],
-  referrers: [
-    { name: "Instagram", clicks: 180 }, 
-    { name: "Twitter / X", clicks: 95 },
-    { name: "Direct / Email", clicks: 40 },
-  ],
-  browsers: [
-    { name: "Chrome", clicks: 190 },
-    { name: "Safari", clicks: 85 },
-    { name: "Firefox", clicks: 40 },
-  ],
-  locations: [
-    { name: "Karnataka, IN", clicks: 160 },
-    { name: "California, US", clicks: 100 },
-    { name: "Unknown", clicks: 55 },
-  ],
-  devices: { mobile: 75, desktop: 25 },
-};
-
 function formatPercent(value: number) {
   return `${Math.round(value)}%`;
 }
 
-//  using recharts
 function MetricCard({
   label,
   value,
@@ -95,9 +64,7 @@ function MetricCard({
         {icon}
       </div>
       <div className="mt-6 space-y-1">
-        <div
-          className={`text-4xl font-black tracking-tight ${accent ?? "text-neutral-950"}`}
-        >
+        <div className={`text-4xl font-black tracking-tight ${accent ?? "text-neutral-950"}`}>
           {value}
         </div>
         <p className="text-xs font-medium text-neutral-400">{note}</p>
@@ -133,11 +100,19 @@ function BarRow({
   );
 }
 
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+      <MousePointerClick className="h-7 w-7 text-neutral-300" />
+      <p className="text-sm font-medium text-neutral-400">{message}</p>
+    </div>
+  );
+}
+
 export default function AnalyticsDashboard({
   shortCode,
 }: AnalyticsDashboardProps) {
-  const token = process.env.NEXT_PUBLIC_ANALYTICS_TOKEN ?? "";
-  const [analytics, setAnalytics] = useState<AnalyticsPayload>(fallbackData);
+  const [analytics, setAnalytics] = useState<AnalyticsPayload | null>(null);
   const [loading, setLoading] = useState<boolean>(Boolean(shortCode));
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -148,14 +123,14 @@ export default function AnalyticsDashboard({
 
   const endpoint = useMemo(() => {
     if (!shortCode) return "";
-    return `/api/analytics/${shortCode}?token=${token}`;
-  }, [shortCode, token]);
+    return `/api/analytics/${shortCode}`;
+  }, [shortCode]);
 
   useEffect(() => {
     const analyticsEndpoint = endpoint;
 
     if (!analyticsEndpoint) {
-      setAnalytics(fallbackData);
+      setAnalytics(null);
       setLoading(false);
       return;
     }
@@ -172,7 +147,8 @@ export default function AnalyticsDashboard({
         });
 
         if (!response.ok) {
-          throw new Error(await response.text());
+          const body = await response.json().catch(() => ({ error: response.statusText }));
+          throw new Error(body?.error ?? response.statusText);
         }
 
         const data: AnalyticsPayload = await response.json();
@@ -184,7 +160,7 @@ export default function AnalyticsDashboard({
             ? fetchError.message
             : "Failed to load analytics",
         );
-        setAnalytics(fallbackData);
+        setAnalytics(null);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -195,19 +171,20 @@ export default function AnalyticsDashboard({
     return () => controller.abort();
   }, [endpoint]);
 
-   const referrerMax = Math.max(
-    ...(analytics.referrers || []).map((referrer) => referrer.clicks),
+  const referrerMax = Math.max(
+    ...(analytics?.referrers ?? []).map((r) => r.clicks),
     1,
   );
   const browserMax = Math.max(
-    ...(analytics.browsers || []).map((browser) => browser.clicks),
+    ...(analytics?.browsers ?? []).map((b) => b.clicks),
     1,
   );
   const locationMax = Math.max(
-    ...(analytics.locations || []).map((loc) => loc.clicks),
+    ...(analytics?.locations ?? []).map((l) => l.clicks),
     1,
   );
 
+  const hasNoClicks = !loading && analytics !== null && analytics.summary.totalClicks === 0;
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950">
@@ -218,8 +195,7 @@ export default function AnalyticsDashboard({
               Link Analytics
             </h1>
             <p className="max-w-2xl text-sm text-neutral-500 md:text-base">
-              Spacious, premium analytics for Short Lyncs with totals, unique
-              visitors, bot filtering, and traffic breakdowns.
+              Real-time analytics — totals, unique visitors, bot filtering, and traffic breakdowns.
             </p>
           </div>
 
@@ -229,34 +205,36 @@ export default function AnalyticsDashboard({
         </header>
 
         {error ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
             {error}
           </div>
         ) : null}
 
+        {/* Summary Cards */}
         <section className="grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-6">
           <MetricCard
             label="Total Clicks"
-            value={loading ? "—" : `${analytics.summary.totalClicks}`}
+            value={loading ? "—" : `${analytics?.summary.totalClicks ?? 0}`}
             note="All tracked interactions across the selected link"
             icon={<BarChart3 className="h-4 w-4" />}
           />
           <MetricCard
             label="Unique Visitors"
-            value={loading ? "—" : `${analytics.summary.uniqueClicks}`}
+            value={loading ? "—" : `${analytics?.summary.uniqueClicks ?? 0}`}
             accent="text-blue-600"
             note="Visitor sessions filtered to exclude repeats"
             icon={<Users className="h-4 w-4 text-blue-500" />}
           />
           <MetricCard
             label="Bots Blocked"
-            value={loading ? "—" : `${analytics.summary.botsBlocked}`}
+            value={loading ? "—" : `${analytics?.summary.botsBlocked ?? 0}`}
             accent="text-neutral-600"
             note="Scrapers and automated traffic excluded from the UI"
             icon={<Globe className="h-4 w-4" />}
           />
         </section>
 
+        {/* Timeline Chart */}
         <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm md:p-8">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
@@ -271,166 +249,181 @@ export default function AnalyticsDashboard({
           </div>
 
           <div className="mt-6 w-full h-[320px] min-h-[320px] rounded-2xl bg-white">
-            {mounted && (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={analytics.timeline}
-                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                  <XAxis
-                    dataKey="time"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#9ca3af", fontSize: 12 }}
-                    dy={10}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#9ca3af", fontSize: 12 }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "12px",
-                      border: "none",
-                      boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
-                      fontWeight: 500,
-                    }}
-                    cursor={{ stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "4 4" }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="clicks"
-                    stroke="#2563eb"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#colorClicks)"
-                    activeDot={{ r: 6, strokeWidth: 0, fill: "#2563eb" }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            {loading ? (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-sm text-neutral-400">Loading…</p>
+              </div>
+            ) : hasNoClicks || !analytics ? (
+              <EmptyState message="No traffic recorded yet. Share your link to start seeing data." />
+            ) : (
+              mounted && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={analytics.timeline}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                    <XAxis
+                      dataKey="time"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#9ca3af", fontSize: 12 }}
+                      dy={10}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#9ca3af", fontSize: 12 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "12px",
+                        border: "none",
+                        boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+                        fontWeight: 500,
+                      }}
+                      cursor={{ stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "4 4" }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="clicks"
+                      stroke="#2563eb"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorClicks)"
+                      activeDot={{ r: 6, strokeWidth: 0, fill: "#2563eb" }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )
             )}
           </div>
         </section>
 
+        {/* Breakdown Panels */}
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Referrers */}
           <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm md:p-8">
             <div className="space-y-1">
-              <h3 className="text-lg font-bold tracking-tight">
-                Top Referrers
-              </h3>
-              <p className="text-sm text-neutral-500">
-                Where traffic is actually coming from.
-              </p>
+              <h3 className="text-lg font-bold tracking-tight">Top Referrers</h3>
+              <p className="text-sm text-neutral-500">Where traffic is actually coming from.</p>
             </div>
-
             <div className="mt-6 space-y-4">
-              {(analytics.referrers || []).map((referrer) => (
-                <BarRow
-                  key={referrer.name}
-                  name={referrer.name}
-                  value={referrer.clicks}
-                  maxValue={referrerMax}
-                />
-              ))}
+              {loading ? (
+                <p className="text-sm text-neutral-400">Loading…</p>
+              ) : analytics?.referrers?.length ? (
+                analytics.referrers.map((referrer) => (
+                  <BarRow
+                    key={referrer.name}
+                    name={referrer.name}
+                    value={referrer.clicks}
+                    maxValue={referrerMax}
+                  />
+                ))
+              ) : (
+                <EmptyState message="No referrer data yet." />
+              )}
             </div>
           </div>
 
           {/* Devices */}
           <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm md:p-8">
             <div className="space-y-1">
-              <h3 className="text-lg font-bold tracking-tight">
-                Device Profile
-              </h3>
-              <p className="text-sm text-neutral-500">
-                A clean split of mobile and desktop behavior.
-              </p>
+              <h3 className="text-lg font-bold tracking-tight">Device Profile</h3>
+              <p className="text-sm text-neutral-500">A clean split of mobile and desktop behavior.</p>
             </div>
-
             <div className="mt-6 space-y-5">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm font-medium text-neutral-700">
-                  <span>Mobile</span>
-                  <span className="font-semibold text-neutral-950">
-                    {formatPercent(analytics.devices.mobile)}
-                  </span>
-                </div>
-                <div className="h-3 w-full overflow-hidden rounded-full bg-neutral-100">
-                  <div
-                    className="h-full rounded-full bg-neutral-900"
-                    style={{ width: `${analytics.devices.mobile}%` }}
-                  />
-                </div>
-              </div>
+              {loading ? (
+                <p className="text-sm text-neutral-400">Loading…</p>
+              ) : !analytics || hasNoClicks ? (
+                <EmptyState message="No device data yet." />
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm font-medium text-neutral-700">
+                      <span>Mobile</span>
+                      <span className="font-semibold text-neutral-950">
+                        {formatPercent(analytics.devices.mobile)}
+                      </span>
+                    </div>
+                    <div className="h-3 w-full overflow-hidden rounded-full bg-neutral-100">
+                      <div
+                        className="h-full rounded-full bg-neutral-900"
+                        style={{ width: `${analytics.devices.mobile}%` }}
+                      />
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm font-medium text-neutral-700">
-                  <span>Desktop</span>
-                  <span className="font-semibold text-neutral-950">
-                    {formatPercent(analytics.devices.desktop)}
-                  </span>
-                </div>
-                <div className="h-3 w-full overflow-hidden rounded-full bg-neutral-100">
-                  <div
-                    className="h-full rounded-full bg-blue-400"
-                    style={{ width: `${analytics.devices.desktop}%` }}
-                  />
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm font-medium text-neutral-700">
+                      <span>Desktop</span>
+                      <span className="font-semibold text-neutral-950">
+                        {formatPercent(analytics.devices.desktop)}
+                      </span>
+                    </div>
+                    <div className="h-3 w-full overflow-hidden rounded-full bg-neutral-100">
+                      <div
+                        className="h-full rounded-full bg-blue-400"
+                        style={{ width: `${analytics.devices.desktop}%` }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           {/* Browsers */}
           <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm md:p-8">
             <div className="space-y-1">
-              <h3 className="text-lg font-bold tracking-tight">
-                Browser Profile
-              </h3>
-              <p className="text-sm text-neutral-500">
-                Top browsers used by your visitors.
-              </p>
+              <h3 className="text-lg font-bold tracking-tight">Browser Profile</h3>
+              <p className="text-sm text-neutral-500">Top browsers used by your visitors.</p>
             </div>
-
             <div className="mt-6 space-y-4">
-              {(analytics.browsers|| []).map((browser) => (
-                <BarRow
-                  key={browser.name}
-                  name={browser.name}
-                  value={browser.clicks}
-                  maxValue={browserMax}
-                />
-              ))}
+              {loading ? (
+                <p className="text-sm text-neutral-400">Loading…</p>
+              ) : analytics?.browsers?.length ? (
+                analytics.browsers.map((browser) => (
+                  <BarRow
+                    key={browser.name}
+                    name={browser.name}
+                    value={browser.clicks}
+                    maxValue={browserMax}
+                  />
+                ))
+              ) : (
+                <EmptyState message="No browser data yet." />
+              )}
             </div>
           </div>
 
           {/* Locations */}
           <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm md:p-8">
             <div className="space-y-1">
-              <h3 className="text-lg font-bold tracking-tight">
-                Top Locations
-              </h3>
-              <p className="text-sm text-neutral-500">
-                Geographic breakdown by region and country.
-              </p>
+              <h3 className="text-lg font-bold tracking-tight">Top Locations</h3>
+              <p className="text-sm text-neutral-500">Geographic breakdown by region and country.</p>
             </div>
-
             <div className="mt-6 space-y-4">
-              {(analytics.locations || []).map((loc) => (
-                <BarRow
-                  key={loc.name}
-                  name={loc.name}
-                  value={loc.clicks}
-                  maxValue={locationMax}
-                />
-              ))}
+              {loading ? (
+                <p className="text-sm text-neutral-400">Loading…</p>
+              ) : analytics?.locations?.length ? (
+                analytics.locations.map((loc) => (
+                  <BarRow
+                    key={loc.name}
+                    name={loc.name}
+                    value={loc.clicks}
+                    maxValue={locationMax}
+                  />
+                ))
+              ) : (
+                <EmptyState message="No location data yet." />
+              )}
             </div>
           </div>
         </section>

@@ -1,26 +1,37 @@
 import prisma from "@/lib/db";
+import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
-
 
 export const dynamic = "force-dynamic";
 
+// 2-hour bucket label lookup (index = floor(hour / 2))
+const HOUR_BUCKET_LABELS: Record<number, string> = {
+  0: "12 AM", 1: "2 AM",  2: "4 AM",  3: "6 AM",
+  4: "8 AM",  5: "10 AM", 6: "12 PM", 7: "2 PM",
+  8: "4 PM",  9: "6 PM", 10: "8 PM", 11: "10 PM",
+};
+
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ code: string }> }
 ) {
   try {
-    const { code } = await params;
-    const expectedToken = process.env.ANALYTICS_TOKEN;
-    const token = request.nextUrl.searchParams.get("token");
-
-    if (expectedToken && token !== expectedToken) {
+    // 1. Require an authenticated session
+    const session = await auth();
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { code } = await params;
+
+    // Fetch only the link metadata — no analytics rows pulled into memory
     const linkRecord = await prisma.shortLink.findUnique({
       where: { shortCode: code },
-      include: {
-        analytics: true,
+      select: {
+        id: true,
+        userId: true,
+        originalUrl: true,
+        shortCode: true,
       },
     });
 
@@ -28,105 +39,142 @@ export async function GET(
       return NextResponse.json({ error: "Short link not found" }, { status: 404 });
     }
 
-    const logs: any[] = linkRecord.analytics;
+    // 2. Enforce ownership — only the link's owner may view its analytics
+    if (linkRecord.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-    const totalClicks = logs.length;
-    const uniqueClicks = logs.filter((log) => log.isUnique && !log.isBot).length;
-    const botsBlocked = logs.filter((log) => log.isBot).length;
+    const linkId = linkRecord.id;
 
-    const hourlyMap: Record<string, number> = {
-      "12 AM": 0,
-      "2 AM": 0,
-      "4 AM": 0,
-      "6 AM": 0,
-      "8 AM": 0,
-      "10 AM": 0,
-      "12 PM": 0,
-      "2 PM": 0,
-      "4 PM": 0,
-      "6 PM": 0,
-      "8 PM": 0,
-      "10 PM": 0,
-    };
+    // 3. All aggregations run in parallel — zero rows are loaded into Node memory.
+    //    Each query asks the database to count and group, returning only the summary.
+    const [
+      totalClicks,
+      uniqueClicks,
+      botsBlocked,
+      hourlyBuckets,
+      referrerGroups,
+      browserGroups,
+      deviceGroups,
+      locationGroups,
+    ] = await Promise.all([
 
-    logs.forEach((log) => {
-      if (log.isBot) return;
+      // Total non-bot clicks
+      prisma.clickAnalytics.count({
+        where: { linkId, isBot: false },
+      }),
 
-      const hour = new Date(log.timestamp).getHours();
-      const bucket = Math.floor(hour / 2) * 2; // round down to nearest even hour
-      const label =
-        bucket === 0  ? "12 AM" :
-        bucket === 2  ? "2 AM"  :
-        bucket === 4  ? "4 AM"  :
-        bucket === 6  ? "6 AM"  :
-        bucket === 8  ? "8 AM"  :
-        bucket === 10 ? "10 AM" :
-        bucket === 12 ? "12 PM" :
-        bucket === 14 ? "2 PM"  :
-        bucket === 16 ? "4 PM"  :
-        bucket === 18 ? "6 PM"  :
-        bucket === 20 ? "8 PM"  : "10 PM";
-      hourlyMap[label]++;
-    });
+      // Unique non-bot clicks
+      prisma.clickAnalytics.count({
+        where: { linkId, isBot: false, isUnique: true },
+      }),
 
-    const graphTimelineData = Object.entries(hourlyMap).map(([time, clicks]) => ({ time, clicks }));
+      // Bot hits
+      prisma.clickAnalytics.count({
+        where: { linkId, isBot: true },
+      }),
 
-    const referrerMap: Record<string, number> = {};
-    logs.forEach((log) => {
-      if (log.isBot) return;
-      const referrer = log.referrer || "Direct / Email";
-      referrerMap[referrer] = (referrerMap[referrer] || 0) + 1;
-    });
+      // Hourly timeline: group by hour-of-day (0-23), non-bot only
+      prisma.clickAnalytics.groupBy({
+        by: ["timestamp"],
+        where: { linkId, isBot: false },
+        _count: { id: true },
+      }),
 
-    const referrerData = Object.entries(referrerMap)
-      .map(([name, clicks]) => ({ name, clicks }))
-      .sort((a, b) => b.clicks - a.clicks)
-      .slice(0, 3);
+      // Top referrers
+      prisma.clickAnalytics.groupBy({
+        by: ["referrer"],
+        where: { linkId, isBot: false },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 3,
+      }),
 
-    const browserMap: Record<string, number> = {};
-    const locationMap: Record<string, number> = {};
+      // Top browsers
+      prisma.clickAnalytics.groupBy({
+        by: ["browser"],
+        where: { linkId, isBot: false },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 4,
+      }),
 
-    logs.forEach((log) => {
-      if (log.isBot) return;
-      
-      const browser = log.browser || "Unknown";
-      browserMap[browser] = (browserMap[browser] || 0) + 1;
+      // Device split (mobile / desktop)
+      prisma.clickAnalytics.groupBy({
+        by: ["device"],
+        where: { linkId, isBot: false },
+        _count: { id: true },
+      }),
 
-      const location =
-        log.country && log.region && log.country !== "Unknown" && log.region !== "Unknown"
-          ? `${log.region}, ${log.country}`
-          : log.country && log.country !== "Unknown"
-            ? log.country
-            : "Unknown";
-      locationMap[location] = (locationMap[location] || 0) + 1;
-    });
+      // Top locations: country + region combined.
+      // groupBy on two columns and let JS merge them — only distinct
+      // (country, region) pairs are returned, not individual rows.
+      prisma.clickAnalytics.groupBy({
+        by: ["country", "region"],
+        where: { linkId, isBot: false },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 4,
+      }),
+    ]);
 
-    const browserData = Object.entries(browserMap)
-      .map(([name, clicks]) => ({ name, clicks }))
-      .sort((a, b) => b.clicks - a.clicks)
-      .slice(0, 4);
+    // ── Timeline: fold individual timestamps into 2-hour buckets ──────────────
+    // hourlyBuckets contains one entry per distinct timestamp value, not per raw row.
+    // We group them by their 2-hour slot in JS — the dataset is at most 12 buckets wide.
+    const hourlyMap: Record<string, number> = Object.fromEntries(
+      Object.values(HOUR_BUCKET_LABELS).map((label) => [label, 0]),
+    );
 
-    const locationData = Object.entries(locationMap)
-      .map(([name, clicks]) => ({ name, clicks }))
-      .sort((a, b) => b.clicks - a.clicks)
-      .slice(0, 4);
+    for (const row of hourlyBuckets) {
+      const hour = new Date(row.timestamp).getHours();
+      const bucketIndex = Math.floor(hour / 2);
+      const label = HOUR_BUCKET_LABELS[bucketIndex];
+      hourlyMap[label] = (hourlyMap[label] ?? 0) + row._count.id;
+    }
 
-    const nonBotLogs = logs.filter((log) => !log.isBot);
-    const mobileCount = nonBotLogs.filter((log) => log.device.toLowerCase() === "mobile").length;
-    const totalNonBots = nonBotLogs.length || 1;
+    const timeline = Object.entries(hourlyMap).map(([time, clicks]) => ({ time, clicks }));
+
+    // ── Referrers ─────────────────────────────────────────────────────────────
+    const referrers = referrerGroups.map((r) => ({
+      name: r.referrer || "Direct / Email",
+      clicks: r._count.id,
+    }));
+
+    // ── Browsers ──────────────────────────────────────────────────────────────
+    const browsers = browserGroups.map((b) => ({
+      name: b.browser || "Unknown",
+      clicks: b._count.id,
+    }));
+
+    // ── Device split ──────────────────────────────────────────────────────────
+    const totalNonBots = totalClicks || 1;
+    const mobileCount = deviceGroups
+      .filter((d) => d.device.toLowerCase() === "mobile")
+      .reduce((sum, d) => sum + d._count.id, 0);
     const mobilePercentage = Math.round((mobileCount / totalNonBots) * 100);
-    const desktopPercentage = 100 - mobilePercentage;
+
+    // ── Locations ─────────────────────────────────────────────────────────────
+    const locations = locationGroups.map((l) => {
+      const hasCountry = l.country && l.country !== "Unknown";
+      const hasRegion  = l.region  && l.region  !== "Unknown";
+      const name =
+        hasCountry && hasRegion ? `${l.region}, ${l.country}` :
+        hasCountry              ? l.country :
+                                  "Unknown";
+      return { name, clicks: l._count.id };
+    });
 
     return NextResponse.json({
       originalUrl: linkRecord.originalUrl,
-      shortCode: linkRecord.shortCode,
+      shortCode:   linkRecord.shortCode,
       summary: { totalClicks, uniqueClicks, botsBlocked },
-      timeline: graphTimelineData,
-      referrers: referrerData,
-      browsers: browserData,
-      locations: locationData,
-      devices: { mobile: mobilePercentage, desktop: desktopPercentage },
+      timeline,
+      referrers,
+      browsers,
+      locations,
+      devices: { mobile: mobilePercentage, desktop: 100 - mobilePercentage },
     });
+
   } catch (error) {
     console.error("Failed to gather link analytics:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

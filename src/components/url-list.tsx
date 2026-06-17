@@ -70,7 +70,7 @@ export default function RecentURLs({ refreshKey }: RecentURLsProps) {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-bold tracking-tight text-neutral-900">
-        Recent URLs
+        Short URLs
       </h2>
       
       <div className="max-h-72 md:max-h-96 overflow-y-auto">
